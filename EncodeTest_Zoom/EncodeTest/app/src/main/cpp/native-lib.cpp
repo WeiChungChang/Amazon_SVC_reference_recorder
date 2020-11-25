@@ -27,7 +27,6 @@ int FillSpecificParameters (SEncParamExt& sParam, int w, int h, int tl, int sl, 
     sParam.iComplexityMode = LOW_COMPLEXITY;
     sParam.bSimulcastAVC         = false;
     sParam.bPrefixNalAddingCtrl  = true;
-    sParam.bPrefixNalAddingCtrl  = true;
     int iIndexLayer = 0;
 
     sParam.sSpatialLayers[iIndexLayer].uiProfileIdc       = PRO_SCALABLE_BASELINE;
@@ -68,7 +67,7 @@ Java_com_example_encodetest_SoftwareEncoder_configEncoder(
 	ISVCEncoder *encoder_ = (ISVCEncoder*)pEncoder;
     SEncParamExt sSvcParam;
     encoder_->GetDefaultParams(&sSvcParam);
-    FillSpecificParameters(sSvcParam, 640, 480, 1, 1, 30, 30);
+    FillSpecificParameters(sSvcParam, 640, 480, 3, 1, 30, 30);
     encoder_->InitializeExt (&sSvcParam);
     std::string hello = "Hello from C++";
     return env->NewStringUTF(hello.c_str());
@@ -94,10 +93,13 @@ Java_com_example_encodetest_SoftwareEncoder_configEncoder2(
         sSvcParam, width, height, temporalLayer,
         spatialLayer, fps, idrInterval);
     encoder_->InitializeExt (&sSvcParam);
+    return 0;
 }
 
+// TODO: apply GetDirectBufferAddress
 extern "C"
 JNIEXPORT jint JNICALL
+//JNIEXPORT jbytearray JNICALL
 Java_com_example_encodetest_SoftwareEncoder_encodeFrame(
         JNIEnv* env,
         jobject /* this */,
@@ -106,6 +108,14 @@ Java_com_example_encodetest_SoftwareEncoder_encodeFrame(
         jint width,
         jint height)
 {
+/*    
+    jintArray result;
+    result = (*env)->NewIntArray(env, size);
+    if (result == NULL) {
+        return NULL; // out of memory error thrown
+    }
+*/
+
     jboolean isCopy;
     char* framePtr = NULL;
     framePtr= (char*)(env->GetByteArrayElements(frame, &isCopy));
@@ -127,17 +137,20 @@ Java_com_example_encodetest_SoftwareEncoder_encodeFrame(
     pic.pData[2] = pic.pData[1] + (width * height >> 2);
 
     int rv = encoder_->EncodeFrame (&pic, &info);
-    if(rv != 0)
+    if(rv != 0) {
         __android_log_assert("EncodeFrame failed", "JNI", nullptr);
-
+    }
+    
+    int iLayerSize = 0;
+    unsigned char *outBuf;
     if (info.eFrameType != videoFrameTypeSkip /*&& cbk != nullptr*/) 
     {
         //output bitstream
         for (int iLayer=0; iLayer < info.iLayerNum; iLayer++)
         {
             SLayerBSInfo* pLayerBsInfo = &info.sLayerInfo[iLayer];
-            unsigned char *outBuf = pLayerBsInfo->pBsBuf;
-            int iLayerSize = 0;
+            outBuf = pLayerBsInfo->pBsBuf;
+
             int offset = 0;
             //int iNalIdx = pLayerBsInfo->iNalCount - 1;
             int iNalIdx = 0;
@@ -145,7 +158,6 @@ Java_com_example_encodetest_SoftwareEncoder_encodeFrame(
                 int type = outBuf[offset+4];
                 int nal_ref_idc = (type >> 5) & 3;
                 int nal_unit_type = type & 0x1f;
-
                 iLayerSize += pLayerBsInfo->pNalLengthInByte[iNalIdx];
                 offset += pLayerBsInfo->pNalLengthInByte[iNalIdx];
                 ++iNalIdx;
@@ -161,6 +173,9 @@ Java_com_example_encodetest_SoftwareEncoder_encodeFrame(
     }
 
     env->ReleaseByteArrayElements(frame, (signed char*)framePtr, 0);
+    
+    // (*env)->SetIntArrayRegion(env, result, 0, iLayerSize, outBuf);
+    // return result;
     return 0;
 }    
 
@@ -171,6 +186,8 @@ Java_com_example_encodetest_SoftwareEncoder_stop(
         jobject /* this */,
         jlong pEncoder)
 {
+    __android_log_print(ANDROID_LOG_VERBOSE, "openh264", "stop");
+    fclose(gFp);
 	ISVCEncoder *encoder_ = (ISVCEncoder*)pEncoder;
     if (encoder_) {
         encoder_->Uninitialize();

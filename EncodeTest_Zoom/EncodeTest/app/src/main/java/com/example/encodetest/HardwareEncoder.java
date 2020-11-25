@@ -14,7 +14,30 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-public class HardwareEncoder {
+public class HardwareEncoder implements Encoder {
+	// Encoder API
+    @Override
+    public void create() {
+        return;
+    }
+    @Override
+    public void encode(byte[] frameData) {
+        encodeFrame(frameData);
+    }
+    @Override
+    public void stop() {
+        stop_internal();
+    }
+    @Override
+    public void configure(String fileName) {
+        return;
+    }
+    @Override
+    public void configureLegacy(int width, int height, int frameRate) {
+        Log.d(TAG, "width " + width + " height " + height + " fps " + frameRate);
+        createEncoder(width, height, frameRate);
+        return;
+    }
 
     protected MediaCodec m_codec = null;
     MediaCodec.BufferInfo m_info = new MediaCodec.BufferInfo();
@@ -40,13 +63,15 @@ public class HardwareEncoder {
 
     // ****   parameter settings
 
-    int m_i_frame_interval = 30*60*60*12;
-    int m_profile = MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
-
-    int m_bit_rate = 1800*1000;
+    //int m_i_frame_interval = 30*60*60*12;
+    int m_i_frame_interval = 1;
+    //int m_profile = MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
+    int m_profile = MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline;
+   
+    int m_bit_rate = 2000000;
     int m_bit_rate_mode = MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR;
 
-    int m_temporal_layers = 2;
+    int m_temporal_layers = 1;
 
     // ****  end of parameter settings
 
@@ -162,6 +187,7 @@ public class HardwareEncoder {
                         Log.w(TAG, "failed to write bitstream");
                         throw new RuntimeException(ioe);
                     }
+                    Log.d(TAG, "write NAL sz %d" + m_info.size);
                 }
 
                 m_encodedSize += m_info.size;
@@ -176,7 +202,7 @@ public class HardwareEncoder {
         }
     }
 
-    public void stop()
+    public void stop_internal()
     {
         Log.d(TAG, "total frames: " + m_frameIdx);
 

@@ -15,21 +15,43 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 
-import java.io.IOException;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Spinner;
+import android.widget.Toast;
+import android.widget.AdapterView.OnItemSelectedListener;
+import android.view.View;
 
-public class MainActivity extends Activity {
+import java.io.IOException;
+import android.util.Log;
+
+public class MainActivity extends Activity implements AdapterView.OnItemSelectedListener 
+{
+    public enum CodecType {
+        HW,
+        SW
+    }
+
+    CodecType codec = CodecType.HW;
+    String[] temporal_layers = { "Disable", "L1T2", "L1T3"};
+
     public final static String MIME_TYPE = "video/avc";
     private static final int PERMISSION_REQUEST_ALL = 0;
 
-    public static int m_width = 1280;
-    public static int m_height = 720;
+    public static int m_width = 640;
+    public static int m_height = 480;
     public static int m_frameRate = 30;
 
+    private Encoder m_encoder;
+    EncoderFactory m_factory;
+ 
     private boolean m_encode_started = false;
 
-    protected HardwareEncoder m_encoder = null;
+    //protected HardwareEncoder m_encoder = null;
 
     protected RecordThread m_recordThread = new RecordThread();
+
+    protected static final String TAG = "AmazonSVC";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,6 +67,8 @@ public class MainActivity extends Activity {
         else{
             askPermission();
         }
+        m_factory = new EncoderFactory(this);
+        m_encoder = m_factory.getEncoder("HW"); 
     }
 
     public void start_work()
@@ -54,6 +78,16 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
 
         ((Button)findViewById(R.id.startEncode)).setOnClickListener(new start_encode_test());
+        ((Button)findViewById(R.id.selectEncoder)).setOnClickListener(new select_encoder());
+
+        Spinner spin = (Spinner)findViewById(R.id.temporalLayer);
+        spin.setOnItemSelectedListener(this);
+        //Creating the ArrayAdapter instance having the country list  
+        ArrayAdapter temporalLayers =
+            new ArrayAdapter(this, android.R.layout.simple_spinner_item, temporal_layers);  
+        temporalLayers.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);  
+        //Setting the ArrayAdapter data on the Spinner  
+        spin.setAdapter(temporalLayers);  
 
         m_encoder = new HardwareEncoder(this);
 
@@ -62,7 +96,6 @@ public class MainActivity extends Activity {
 
     public void askPermission() {
         String[] str = {Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.CAMERA};
-
         ActivityCompat.requestPermissions(this, str, PERMISSION_REQUEST_ALL);
     }
 
@@ -80,6 +113,41 @@ public class MainActivity extends Activity {
         return;
     }
 
+    @Override
+    public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+        // On selecting a spinner item
+        String item = parent.getItemAtPosition(position).toString();
+
+        // Showing selected spinner item
+        Toast.makeText(parent.getContext(), "Selected: " + item, Toast.LENGTH_LONG).show();
+    }
+    @Override
+    public void onNothingSelected(AdapterView<?> arg0) {
+        // TODO Auto-generated method stub
+    }
+
+
+    private class select_encoder implements View.OnClickListener
+    {
+        @Override
+        public void onClick(View v) {
+            Log.d(TAG, "current codec type = " + codec);
+            if (codec == CodecType.HW)
+            {
+                ((Button)findViewById(R.id.selectEncoder)).setText("SW");
+                Log.d(TAG, "select SW encoder");
+                codec = CodecType.SW;
+                m_encoder = m_factory.getEncoder("SW");
+            }
+            else
+            {
+                ((Button)findViewById(R.id.selectEncoder)).setText("HW");
+                Log.d(TAG, "select HW encoder");
+                codec = CodecType.HW;
+                m_encoder = m_factory.getEncoder("HW");
+            }
+        }
+	}
 
     private class start_encode_test implements View.OnClickListener
     {
@@ -104,10 +172,6 @@ public class MainActivity extends Activity {
             }
         }
     }
-
-
-
-
 
     public class RecordThread extends HandlerThread implements Handler.Callback{
         private Handler mWorkerHandler;
@@ -157,12 +221,15 @@ public class MainActivity extends Activity {
 //                    } catch (IOException e) {
 //                        e.printStackTrace();
 //                    }
-                    m_encoder.createEncoder(m_width, m_height, m_frameRate);
+                    //m_encoder.createEncoder(m_width, m_height, m_frameRate);
+                    m_encoder.create();
+                    m_encoder.configureLegacy(m_width, m_height, m_frameRate);
                     setStatus(true);
                     break;
                 case MSG_FRAME:
                     byte[] frame = msg.getData().getByteArray("data");
-                    m_encoder.encodeFrame(frame);
+                    //m_encoder.encodeFrame(frame);
+                    m_encoder.encode(frame);
                     setStatus(true);
                     break;
                 case MSG_END:

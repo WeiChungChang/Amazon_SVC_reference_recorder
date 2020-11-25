@@ -23,7 +23,7 @@ public class CameraSink extends SurfaceView implements SurfaceHolder.Callback, C
 
     protected MainActivity.RecordThread m_recordThread = null;
 
-    protected HardwareEncoder encoder = null;
+    protected Encoder encoder = null;
 
     protected byte[] cacheData = null;
 
@@ -56,7 +56,8 @@ public class CameraSink extends SurfaceView implements SurfaceHolder.Callback, C
         m_recordThread = thread;
     }
 
-    public void setEncoder(HardwareEncoder e)
+    //public void setEncoder(HardwareEncoder e)
+    public void setEncoder(Encoder e)
     {
         encoder = e;
     }
